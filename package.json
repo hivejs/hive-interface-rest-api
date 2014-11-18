@@ -1,0 +1,28 @@
+{
+  "name": "hive-rest-api",
+  "version": "0.0.0",
+  "description": "REST api for hive.js",
+  "main": "index.js",
+  "dependencies": {
+     "koa": "*"
+  , "koa-mount": "*"
+  , "koa-parse-json": "*"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hivejs/hive-rest-api.git"
+  },
+  "keywords": [
+    "hivejs",
+    "hive.js"
+  ],
+  "author": "Marcel Klehr <mklehr@gmx.net>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hivejs/hive-rest-api/issues"
+  },
+  "homepage": "https://github.com/hivejs/hive-rest-api"
+}
