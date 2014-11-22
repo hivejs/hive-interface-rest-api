@@ -1,6 +1,6 @@
 {
   "name": "hive-rest-api",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "REST api for hive.js",
   "main": "index.js",
   "dependencies": {
