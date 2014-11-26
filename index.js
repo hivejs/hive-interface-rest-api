@@ -1,15 +1,16 @@
+"use strict";
 var koa = require('koa')
   , mount = require('koa-mount')
   , router = require('koa-router')
   , jsonBody = require('koa-parse-json');
 
 module.exports = setup
-module.exports.consumes = ['http', 'orm', 'auth']
+module.exports.consumes = ['http', 'auth', 'hooks']
 
 function setup(plugin, imports, register) {
   var httpApp = imports.http
-    , orm = imports.orm
     , auth = imports.auth
+    , hooks = imports.hooks
 
   var api = koa()
   httpApp.use(mount('/api', api))
@@ -18,10 +19,13 @@ function setup(plugin, imports, register) {
   api.use(mount('/v1', APIv1))
   APIv1.use(router(APIv1))
 
-  var Document = orm.collections.document
-    , Snapshot = orm.collections.snapshot
-    , User = orm.collections.user
-    , PendingChange = orm.collections.pendingChange
+hooks.on('models:loaded', function*(models){
+//yield (function(cb) {setImmediate(cb)})
+
+  var Document = models.Document
+    , Snapshot = models.Snapshot
+    , User = models.User
+    , PendingChange = models.PendingChange
 
   APIv1.use(jsonBody())
 
@@ -50,7 +54,7 @@ function setup(plugin, imports, register) {
         if(!this.accepts('json')) {
          return this.throw(406)
         }
-        if(!yield auth.authorize(this.user, 'document:create', this.params)) {
+        if(!(yield auth.authorize(this.user, 'document:create', this.params))) {
          return this.throw(403)
         }
         var doc = yield Document.create({
@@ -59,7 +63,7 @@ function setup(plugin, imports, register) {
         yield Snapshot.createInitial(doc.id) // XXX
       })
     .get('/documents/:document', function * (next) {
-        if(!yield auth.authorize(this.user, 'document:show', this.params)) {
+        if(!(yield auth.authorize(this.user, 'document:show', this.params))) {
           return this.throw(403)
         }
         try {
@@ -73,7 +77,7 @@ function setup(plugin, imports, register) {
         }
       })
     .delete('/documents/:document', function * (next) {
-        if(!yield auth.authorize(this.user, 'document:destroy'. this.params)) {
+        if(!(yield auth.authorize(this.user, 'document:destroy', this.params))) {
           return this.throw(403)
         }
         try {
@@ -85,7 +89,7 @@ function setup(plugin, imports, register) {
       })
 
     .post('/documents/:document/pendingChanges', function * (next) {
-        if(!yield auth.authorize(this.user, 'document/pendingChanges:create', this.params)) {
+        if(!(yield auth.authorize(this.user, 'document/pendingChanges:create', this.params))) {
           return this.throw(403)
         }
         if(!this.accepts('json')) {
@@ -101,7 +105,7 @@ function setup(plugin, imports, register) {
       })
 
     .get('/documents/:document/users', function * (next) {
-        if(!yield auth.authorize(this.user, 'document/users:index', this.params)) {
+        if(!(yield auth.authorize(this.user, 'document/users:index', this.params))) {
           return this.throw(403)
         }
         var doc = yield Document.findOne(this.params.document)
@@ -109,7 +113,7 @@ function setup(plugin, imports, register) {
       })
 
     .get('/documents/:document/snapshots', function * (next) {
-        if(!yield auth.authorize(this.user, 'document/snapshots:index', this.params)) {
+        if(!(yield auth.authorize(this.user, 'document/snapshots:index', this.params))) {
           return this.throw(403)
         }
         var doc = yield Document.findOne(this.params.document)
@@ -120,7 +124,7 @@ function setup(plugin, imports, register) {
         if(!this.accepts('json')) {
         return this.throw(406)
         }
-        if(!yield auth.authorize(this.user, 'user:create', this.params)) {
+        if(!(yield auth.authorize(this.user, 'user:create', this.params))) {
         return this.throw(403)
         }
         var doc = yield User.create({
@@ -131,7 +135,7 @@ function setup(plugin, imports, register) {
         yield Snapshot.createInitial(doc.id) // XXX
       })
     .get('/users/:user', function*(next) {
-        if(!yield auth.authorize(this.user, 'user:show', this.params)) {
+        if(!(yield auth.authorize(this.user, 'user:show', this.params))) {
           return this.throw(403)
         }
         try {
@@ -147,28 +151,28 @@ function setup(plugin, imports, register) {
         // XXX
       })
     .delete('/users/:user', function * (next) {
-        if(!yield auth.authorize(this.user, 'user:destroy', this.params)) {
+        if(!(yield auth.authorize(this.user, 'user:destroy', this.params))) {
           return this.throw(403)
         }
         return ( yield User.find(this.params.user) ).destroy()
       })
 
     .get('/users/:user/documents', function*(next) {
-        if(!yield auth.authorize(this.user, 'user/documents:index', this.params)) {
+        if(!(yield auth.authorize(this.user, 'user/documents:index', this.params))) {
           return this.throw(403)
         }
         this.body = yield Document.find({where: {authors: this.params.user}})
       })
 
     .get('/users/:user/snapshots', function * () {
-        if(!yield auth.authorize(this.user, 'user/snapshots:index', this.params)) {
+        if(!(yield auth.authorize(this.user, 'user/snapshots:index', this.params))) {
           return this.throw(403)
         }
         this.body = yield Snapshot.find({where: {author: this.params.user}})
       })
 
     .get('/snapshots/:snapshot', function * () {
-        if(!yield auth.authorize(this.user, 'snapshot:show', this.params)) {
+        if(!(yield auth.authorize(this.user, 'snapshot:show', this.params))) {
           return this.throw(403)
         }
         try {
@@ -179,7 +183,7 @@ function setup(plugin, imports, register) {
           yield next
         }
       })
-
+})
 
   register()
 }

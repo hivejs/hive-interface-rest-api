@@ -7,6 +7,7 @@
      "koa": "*"
   , "koa-mount": "*"
   , "koa-parse-json": "*"
+  , "koa-router": "*"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
