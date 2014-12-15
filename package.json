@@ -9,6 +9,9 @@
   , "koa-parse-json": "*"
   , "koa-router": "*"
   },
+  "devDependencies": {
+    "supertest": "*"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
