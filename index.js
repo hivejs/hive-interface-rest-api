@@ -5,13 +5,14 @@ var koa = require('koa')
   , jsonBody = require('koa-parse-json');
 
 module.exports = setup
-module.exports.consumes = ['http', 'auth', 'hooks', 'orm']
+module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'worker-pool']
 
 function setup(plugin, imports, register) {
   var httpApp = imports.http
     , auth = imports.auth
     , hooks = imports.hooks
     , orm = imports.orm
+    , workerPool = imports['worker-pool']
 
   var api = koa()
   httpApp.use(mount('/api', api))
@@ -32,7 +33,7 @@ function setup(plugin, imports, register) {
   })
 
   APIv1.use(function* (next) {
-    var token = this.request.query.access_token // this.get('Authorization').split(' ')[1]
+    var token = this.request.query.access_token || this.get('X-API-Key')
     this.user = yield auth.authenticate('oauth', token)
     if(!this.user) {
       return this.throw(401)
@@ -48,7 +49,6 @@ function setup(plugin, imports, register) {
     var Document = orm.collections.document
       , Snapshot = orm.collections.snapshot
       , User = orm.collections.user
-      , PendingChange = orm.collections.pendingchange
 
     APIv1
       .post('/documents', function*(next) {
@@ -61,8 +61,10 @@ function setup(plugin, imports, register) {
           var doc = yield Document.create({
             type: this.request.body.type
           })
-          yield Snapshot.createInitial(doc.id) // XXX
-        })
+          //yield createInitial(doc.id) // XXX
+          this.body = doc
+
+      })
       .get('/documents/:document', function * (next) {
           if(!(yield auth.authorize(this.user, 'document:show', this.params))) {
             return this.throw(403)
@@ -79,6 +81,7 @@ function setup(plugin, imports, register) {
           var doc = yield Document.findOne({id: this.params.document})
           if(!doc) this.throw(404)
           yield doc.destroy()
+          this.body = {message: 'ok'}
         })
 
       .post('/documents/:document/pendingChanges', function * (next) {
@@ -90,11 +93,14 @@ function setup(plugin, imports, register) {
           }
           var doc = yield Document.findOne({id: this.params.document}) // XXX: 404
 
-          yield doc.pendingChanges.add({
-           changes: this.request.body.changes
-          , parent: this.request.body.parent
-          , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
-          })
+          if(!doc) this.throw(404)
+          yield function(cb) {
+            workerPool.newChangeset(doc.id, {
+             changeset: this.request.body.changes
+            , parent: this.request.body.parent
+            , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
+            }, cb)
+          }
         })
 
       .get('/documents/:document/users', function * (next) {
@@ -121,16 +127,19 @@ function setup(plugin, imports, register) {
             return this.throw(403)
           }
           var user = yield User.create({
-            name: this.body.name
-          , type: this.body.type
-          , foreignId: this.body.foreignId
+            name: this.request.body.name
+          , type: this.request.body.type
+          , foreignId: this.request.body.foreignId
           })
+          yield user.save()
+          this.body = user
+          console.log(user)
         })
       .get('/users/:user', function*(next) {
           if(!(yield auth.authorize(this.user, 'user:show', this.params))) {
             return this.throw(403)
           }
-          var user = yield User.findOne({id: this.params.document}) // XXX: Might require Document.exists() beforehand to not make it throw up
+          var user = yield User.findOne({id: this.params.user}) // XXX: Might require Document.exists() beforehand to not make it throw up
           if(!user) this.throw(404)
           this.body = user
         })
@@ -145,6 +154,7 @@ function setup(plugin, imports, register) {
           var user = yield User.findOne({id:this.params.user})
           if(!user) this.throw(404)
           yield user.destroy()
+          this.body = {message: 'ok'}
         })
 
       .get('/users/:user/documents', function*(next) {
@@ -160,7 +170,10 @@ function setup(plugin, imports, register) {
           if(!(yield auth.authorize(this.user, 'user/snapshots:index', this.params))) {
             return this.throw(403)
           }
-          this.body = yield Snapshot.find({where: {author: this.params.user}})
+          var snapshot = yield Snapshot.find({where: {author: this.params.user}})
+
+          if(!snapshot) this.throw(404)
+          this.body = snapshot
         })
 
       .get('/snapshots/:snapshot', function * () {
