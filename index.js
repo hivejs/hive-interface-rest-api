@@ -37,7 +37,7 @@ function setup(plugin, imports, register) {
     this.user = yield auth.authenticate('oauth', token)
     if(!this.user) {
       return this.throw(401)
-    }console.log(this.user)
+    }
     yield next
   })
 
@@ -63,7 +63,6 @@ function setup(plugin, imports, register) {
           })
           //yield createInitial(doc.id) // XXX
           this.body = doc
-
       })
       .get('/documents/:document', function * (next) {
           if(!(yield auth.authorize(this.user, 'document:show', this.params))) {
@@ -94,6 +93,7 @@ function setup(plugin, imports, register) {
           var doc = yield Document.findOne({id: this.params.document}) // XXX: 404
 
           if(!doc) this.throw(404)
+
           yield function(cb) {
             workerPool.newChangeset(doc.id, {
              changeset: this.request.body.changes
@@ -126,14 +126,22 @@ function setup(plugin, imports, register) {
           if(!(yield auth.authorize(this.user, 'user:create', this.params))) {
             return this.throw(403)
           }
-          var user = yield User.create({
+
+          var user = yield User.findOne({ type: this.request.body.type
+                                        , foreignId: this.request.body.foreignId})
+          // prevent user duplicates of same type+foreignId
+          if(user) {
+            this.body = user
+            return
+          }
+
+          user = yield User.create({
             name: this.request.body.name
           , type: this.request.body.type
           , foreignId: this.request.body.foreignId
           })
           yield user.save()
           this.body = user
-          console.log(user)
         })
       .get('/users/:user', function*(next) {
           if(!(yield auth.authorize(this.user, 'user:show', this.params))) {
