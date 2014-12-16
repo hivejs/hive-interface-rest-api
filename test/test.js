@@ -122,7 +122,7 @@ describe('Documents API', function() {
       if(err) return done(err)
 
       request
-      .get('/documents/'+userId)
+      .get('/documents/'+documentId)
       .set('X-API-Key', API_key)
       .expect(404)
       .expect('Content-Type', /json/)
