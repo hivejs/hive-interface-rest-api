@@ -1,18 +1,17 @@
 var request = require('supertest')
   , assert = require('assert')
+  , request = request('http://localhost:1235/api/v1')
   , API_key = 'xxx'
 
 
-describe('API version 1', function() {
-  request = request('http://localhost:1235/api/v1')
-
+describe('Users API', function() {
   var userId
 
   it('should create a new user', function(done) {
     request
     .post('/users')
     .set('X-API-Key', API_key)
-    .send({name: 'Foo Bar', type: '', foreignId: 1234})
+    .send({name: 'Foo Bar'/*, type: '', foreignId: 1234*/})
     .expect(200)
     .expect('Content-Type', /json/)
     .end(function(err, res) {
@@ -53,6 +52,24 @@ describe('API version 1', function() {
     })
   })
 
+})
+
+describe('Documents API', function() {
+
+  var userId
+  before(function(done) {
+    // create a new user
+    request
+      .post('/users')
+      .set('X-API-Key', API_key)
+      .send({name: 'Foo Bar'/*, type: '', foreignId: 1234*/})
+      .end(function(err, res) {
+        if(err) return done(err)
+        userId = res.body.id
+        done()
+      })
+  })
+
   var documentId
 
   it('should create a new document', function(done) {
@@ -73,6 +90,19 @@ describe('API version 1', function() {
     request
     .get('/documents/'+documentId)
     .set('X-API-Key', API_key)
+    .expect(200)
+    .expect('Content-Type', /json/)
+    .expect(function(res) {
+      assert(res.body.id == documentId)
+    })
+    .end(done)
+  })
+
+  it('should change a document', function(done) {
+    request
+    .post('/documents/'+documentId+'/pendingChanges')
+    .set('X-API-Key', API_key)
+    .send({changes: '+foo', parent: 0, user: userId})
     .expect(200)
     .expect('Content-Type', /json/)
     .expect(function(res) {
