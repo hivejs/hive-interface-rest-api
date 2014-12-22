@@ -76,7 +76,7 @@ describe('Documents API', function() {
     request
     .post('/documents')
     .set('X-API-Key', API_key)
-    .send({type: 'text'})
+    .send({type: 'plaintext'})
     .expect(200)
     .expect('Content-Type', /json/)
     .end(function(err, res) {
@@ -86,6 +86,7 @@ describe('Documents API', function() {
     })
   })
 
+  var document
   it('should retrieve a document', function(done) {
     request
     .get('/documents/'+documentId)
@@ -94,21 +95,36 @@ describe('Documents API', function() {
     .expect('Content-Type', /json/)
     .expect(function(res) {
       assert(res.body.id == documentId)
+      document = res.body
     })
     .end(done)
   })
 
+  var snapshot
   it('should change a document', function(done) {
     request
     .post('/documents/'+documentId+'/pendingChanges')
     .set('X-API-Key', API_key)
-    .send({changes: '+foo', parent: 0, user: userId})
+    .send({changes: ["foo"], parent: document.snapshot || 1, user: userId})
     .expect(200)
     .expect('Content-Type', /json/)
     .expect(function(res) {
-      assert(res.body.id == documentId)
+      assert(res.body.content == 'foo')
+      snapshot = res.body
     })
-    .end(done)
+    .end(function(err) {
+      if(err) return done(err)
+
+      request
+      .get('/documents/'+documentId)
+      .set('X-API-Key', API_key)
+      .expect(200)
+      .expect('Content-Type', /json/)
+      .expect(function(res) {
+        assert(res.body.snapshot == snapshot.id)
+      })
+      .end(done)
+    })
   })
 
   it('should delete a document', function(done) {
