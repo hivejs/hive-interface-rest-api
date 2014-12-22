@@ -5,7 +5,7 @@ var koa = require('koa')
   , jsonBody = require('koa-parse-json');
 
 module.exports = setup
-module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'worker-pool']
+module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'worker-pool', 'ot']
 
 function setup(plugin, imports, register) {
   var httpApp = imports.http
@@ -13,6 +13,7 @@ function setup(plugin, imports, register) {
     , hooks = imports.hooks
     , orm = imports.orm
     , workerPool = imports['worker-pool']
+    , ot = imports.ot
 
   var api = koa()
   httpApp.use(mount('/api', api))
@@ -43,8 +44,7 @@ function setup(plugin, imports, register) {
 
   APIv1.use(router(APIv1))
 
-  hooks.on('orm:initialized', function*(models){
-  //yield (function(cb) {setImmediate(cb)})
+  hooks.on('orm:initialized', function*(){
 
     var Document = orm.collections.document
       , Snapshot = orm.collections.snapshot
@@ -58,10 +58,28 @@ function setup(plugin, imports, register) {
           if(!(yield auth.authorize(this.user, 'document:create', this.params))) {
            return this.throw(403)
           }
+
+          var ottype = ot.getOTType(this.request.body.type)
+          if(!ottype) this.throw(400, 'Specified document type is not available')
+
           var doc = yield Document.create({
             type: this.request.body.type
           })
-          //yield createInitial(doc.id) // XXX
+
+          var content = ottype.create()
+          if(ottype.serialize) {
+            content = ottype.serialize(content)
+          }
+
+          var snapshot = yield Snapshot.create({
+            content: content
+          , document: doc.id
+          , author: this.user.id
+          })
+
+          doc.snapshot = snapshot.id
+          yield doc.save()
+
           this.body = doc
       })
       .get('/documents/:document', function * (next) {
@@ -91,12 +109,11 @@ function setup(plugin, imports, register) {
            return this.throw(406)
           }
           var doc = yield Document.findOne({id: this.params.document}) // XXX: 404
-
           if(!doc) this.throw(404)
 
-          yield function(cb) {
+          this.body = yield function(cb) {
             workerPool.newChangeset(doc.id, {
-             changeset: this.request.body.changes
+              changeset: this.request.body.changes
             , parent: this.request.body.parent
             , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
             }, cb)
@@ -115,7 +132,23 @@ function setup(plugin, imports, register) {
           if(!(yield auth.authorize(this.user, 'document/snapshots:index', this.params))) {
             return this.throw(403)
           }
-          var doc = yield Document.findOne({id: this.params.document})
+
+          // returns all snapshots since X
+          if(this.query.since) {
+            var sinceSnapshot = yield Snapshot.findOne({id: this.query.since})
+            if(!sinceSnapshot) this.throw(404)
+            if(sinceSnapshot.document != this.params.document) this.throw(400)
+
+            var snapshots = []
+             , s = sinceSnapshot
+            while(s = yield Snapshot.findOne({parent: s.id}) ) {
+              snapshots.push(s)
+            }
+            this.body = snapshots
+            return
+          }
+
+          var doc = yield Document.findOne({id: this.params.document}).populate('snapshots')
           this.body = doc.snapshots // XXX: Allow streamin'
         })
 
