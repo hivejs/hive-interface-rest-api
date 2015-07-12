@@ -44,11 +44,11 @@ function setup(plugin, imports, register) {
 
   APIv1.use(router(APIv1))
 
-  hooks.on('orm:initialized', function*(){
+  hooks.on('models:loaded', function*(models){
 
-    var Document = orm.collections.document
-      , Snapshot = orm.collections.snapshot
-      , User = orm.collections.user
+    var Document = models.Document
+      , Snapshot = models.Snapshot
+      , User = models.User
 
     APIv1
       .post('/documents', function*(next) {
@@ -97,7 +97,7 @@ function setup(plugin, imports, register) {
 
           var doc = yield Document.findOne({id: this.params.document})
           if(!doc) this.throw(404)
-          yield doc.destroy()
+          yield doc.destroy() // XXX: Remove all snapshots
           this.body = {message: 'ok'}
         })
 
