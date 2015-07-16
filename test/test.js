@@ -10,7 +10,7 @@ describe('Users API', function() {
   it('should create a new user', function(done) {
     request
     .post('/users')
-    .set('X-API-Key', API_key)
+    .set('Authorization', 'token '+API_key)
     .send({name: 'Foo Bar'/*, type: '', foreignId: 1234*/})
     .expect(200)
     .expect('Content-Type', /json/)
@@ -24,7 +24,7 @@ describe('Users API', function() {
   it('should retrieve a user', function(done) {
     request
     .get('/users/'+userId)
-    .set('X-API-Key', API_key)
+    .set('Authorization', 'token '+API_key)
     .expect(200)
     .expect('Content-Type', /json/)
     .expect(function(res) {
@@ -36,7 +36,7 @@ describe('Users API', function() {
   it('should delete a user', function(done) {
     request
     .delete('/users/'+userId)
-    .set('X-API-Key', API_key)
+    .set('Authorization', 'token '+API_key)
     .expect(200)
     .expect('Content-Type', /json/)
 
@@ -45,7 +45,7 @@ describe('Users API', function() {
 
       request
       .get('/users/'+userId)
-      .set('X-API-Key', API_key)
+      .set('Authorization', 'token '+API_key)
       .expect(404)
       .expect('Content-Type', /json/)
       .end(done)
@@ -61,7 +61,7 @@ describe('Documents API', function() {
     // create a new user
     request
       .post('/users')
-      .set('X-API-Key', API_key)
+      .set('Authorization', 'token '+API_key)
       .send({name: 'Foo Bar'/*, type: '', foreignId: 1234*/})
       .end(function(err, res) {
         if(err) return done(err)
@@ -75,7 +75,7 @@ describe('Documents API', function() {
   it('should create a new document', function(done) {
     request
     .post('/documents')
-    .set('X-API-Key', API_key)
+    .set('Authorization', 'token '+API_key)
     .send({type: 'plaintext'})
     .expect(200)
     .expect('Content-Type', /json/)
@@ -90,7 +90,7 @@ describe('Documents API', function() {
   it('should retrieve a document', function(done) {
     request
     .get('/documents/'+documentId)
-    .set('X-API-Key', API_key)
+    .set('Authorization', 'token '+API_key)
     .expect(200)
     .expect('Content-Type', /json/)
     .expect(function(res) {
@@ -104,8 +104,8 @@ describe('Documents API', function() {
   it('should change a document', function(done) {
     request
     .post('/documents/'+documentId+'/pendingChanges')
-    .set('X-API-Key', API_key)
-    .send({changes: ["foo"], parent: document.snapshot || 1, user: userId})
+    .set('Authorization', 'token '+API_key)
+    .send({changes: ["foo"], parent: document.snapshot, user: userId})
     .expect(200)
     .expect('Content-Type', /json/)
     .expect(function(res) {
@@ -117,7 +117,7 @@ describe('Documents API', function() {
 
       request
       .get('/documents/'+documentId)
-      .set('X-API-Key', API_key)
+      .set('Authorization', 'token '+API_key)
       .expect(200)
       .expect('Content-Type', /json/)
       .expect(function(res) {
@@ -130,7 +130,7 @@ describe('Documents API', function() {
   it('should delete a document', function(done) {
     request
     .delete('/documents/'+documentId)
-    .set('X-API-Key', API_key)
+    .set('Authorization', 'token '+API_key)
     .expect(200)
     .expect('Content-Type', /json/)
 
@@ -139,7 +139,7 @@ describe('Documents API', function() {
 
       request
       .get('/documents/'+documentId)
-      .set('X-API-Key', API_key)
+      .set('Authorization', 'token '+API_key)
       .expect(404)
       .expect('Content-Type', /json/)
       .end(done)

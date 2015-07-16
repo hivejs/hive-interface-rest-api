@@ -34,7 +34,14 @@ function setup(plugin, imports, register) {
   })
 
   APIv1.use(function* (next) {
-    var token = this.request.query.access_token || this.get('X-API-Key')
+    var token = this.request.query.access_token
+    if(!token) {
+      token = this.get('Authorization')
+      if(!token) return this.throw(401)
+      var tokenParts = token.split(' ')
+      if(tokenParts[0] !== 'token') return this.throw(401)
+      token = tokenParts[1]
+    }
     this.user = yield auth.authenticate('oauth', token)
     if(!this.user) {
       return this.throw(401)
