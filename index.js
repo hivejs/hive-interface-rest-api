@@ -65,26 +65,11 @@ function setup(plugin, imports, register) {
            return this.throw(403)
           }
 
-          var ottype = ot.getOTType(this.request.body.type)
-          if(!ottype) this.throw(400, 'Specified document type is not available')
-
-          var doc = yield Document.create({
-            type: this.request.body.type
-          })
-
-          var content = ottype.create()
-          if(ottype.serialize) {
-            content = ottype.serialize(content)
+          try {
+            var doc = yield sync.createDocument(this.request.body.type)
+          }catch(e) {
+            this.throw(400, e)
           }
-
-          var snapshot = yield Snapshot.create({
-            content: content
-          , document: doc.id
-          , author: this.user.id
-          })
-
-          doc.snapshot = snapshot.id
-          yield doc.save()
 
           this.body = doc
       })
@@ -117,13 +102,19 @@ function setup(plugin, imports, register) {
           var doc = yield Document.findOne({id: this.params.document}) // XXX: 404
           if(!doc) this.throw(404)
 
-          this.body = yield function(cb) {
-            sync.getDocument(doc.id).receiveEdit(JSON.stringify({
-              changeset: this.request.body.changes
+          var doc = yield sync.getDocument(doc.id)
+            , link = doc.slaveLink()
+          link.on('error', function() {
+            this.throw(500)
+          }.bind(this))
+          yield function(cb) {
+            doc.receiveEdit(JSON.stringify({
+              cs: this.request.body.changes
             , parent: this.request.body.parent
             , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
-            }), cb)
+            }), link, cb)
           }
+          
         })
 
       .get('/documents/:document/users', function * (next) {
