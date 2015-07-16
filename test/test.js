@@ -105,7 +105,7 @@ describe('Documents API', function() {
     request
     .post('/documents/'+documentId+'/pendingChanges')
     .set('Authorization', 'token '+API_key)
-    .send({changes: ["foo"], parent: document.snapshot, user: userId})
+    .send({changes: ["foo"], parent: document.latestSnapshot, user: userId})
     .expect(200)
     .expect('Content-Type', /json/)
     .expect(function(res) {
