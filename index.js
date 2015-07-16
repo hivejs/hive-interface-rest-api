@@ -51,11 +51,10 @@ function setup(plugin, imports, register) {
 
   APIv1.use(router(APIv1))
 
-  hooks.on('models:loaded', function*(models){
-
-    var Document = models.Document
-      , Snapshot = models.Snapshot
-      , User = models.User
+  hooks.on('orm:initialized', function*(models){
+    var Document = models.document
+      , Snapshot = models.snapshot
+      , User = models.user
 
     APIv1
       .post('/documents', function*(next) {
