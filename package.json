@@ -1,13 +1,13 @@
 {
   "name": "hive-rest-api",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "REST api for hive.js",
   "main": "index.js",
   "dependencies": {
-     "koa": "*"
-  , "koa-mount": "*"
-  , "koa-parse-json": "*"
-  , "koa-router": "*"
+    "koa": "*",
+    "koa-mount": "*",
+    "koa-parse-json": "*",
+    "koa-router": "*"
   },
   "devDependencies": {
     "supertest": "*"
