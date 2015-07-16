@@ -5,14 +5,14 @@ var koa = require('koa')
   , jsonBody = require('koa-parse-json');
 
 module.exports = setup
-module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'worker-pool', 'ot']
+module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'sync', 'ot']
 
 function setup(plugin, imports, register) {
   var httpApp = imports.http
     , auth = imports.auth
     , hooks = imports.hooks
     , orm = imports.orm
-    , workerPool = imports['worker-pool']
+    , sync = imports.sync
     , ot = imports.ot
 
   var api = koa()
@@ -112,11 +112,11 @@ function setup(plugin, imports, register) {
           if(!doc) this.throw(404)
 
           this.body = yield function(cb) {
-            workerPool.newChangeset(doc.id, {
+            sync.getDocument(doc.id).receiveEdit(JSON.stringify({
               changeset: this.request.body.changes
             , parent: this.request.body.parent
             , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
-            }, cb)
+            }), cb)
           }
         })
 
