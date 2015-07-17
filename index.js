@@ -103,18 +103,15 @@ function setup(plugin, imports, register) {
           if(!doc) this.throw(404)
 
           var doc = yield sync.getDocument(doc.id)
-            , link = doc.slaveLink()
-          link.on('error', function() {
-            this.throw(500)
-          }.bind(this))
-          yield function(cb) {
+          var edit = yield function(cb) {
             doc.receiveEdit(JSON.stringify({
               cs: this.request.body.changes
             , parent: this.request.body.parent
             , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
-            }), link, cb)
+            }), null, cb)
           }
           
+          this.body = yield Snapshot.findOne({id: edit.id})
         })
 
       .get('/documents/:document/users', function * (next) {
