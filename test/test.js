@@ -109,7 +109,7 @@ describe('Documents API', function() {
     .expect(200)
     .expect('Content-Type', /json/)
     .expect(function(res) {
-      assert(res.body.content == 'foo')
+      assert(res.body.contents == 'foo')
       snapshot = res.body
     })
     .end(function(err) {
@@ -121,7 +121,7 @@ describe('Documents API', function() {
       .expect(200)
       .expect('Content-Type', /json/)
       .expect(function(res) {
-        assert(res.body.snapshot == snapshot.id)
+        assert(res.body.latestSnapshot == snapshot.id)
       })
       .end(done)
     })
