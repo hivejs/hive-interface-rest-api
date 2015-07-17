@@ -34,15 +34,16 @@ function setup(plugin, imports, register) {
   })
 
   APIv1.use(function* (next) {
-    var token = this.request.query.access_token
-    if(!token) {
-      token = this.get('Authorization')
-      if(!token) return this.throw(401)
-      var tokenParts = token.split(' ')
-      if(tokenParts[0] !== 'token') return this.throw(401)
-      token = tokenParts[1]
+    var credentials = this.request.query.access_token
+      , type = "token"
+    if(!credentials) {
+      credentials = this.get('Authorization')
+      if(!credentials) return this.throw(401)
+      var credParts = credentials.split(' ')
+      type = credParts[0]
+      credentials = credParts[1]
     }
-    this.user = yield auth.authenticate('oauth', token)
+    this.user = yield auth.authenticate(type, credentials)
     if(!this.user) {
       return this.throw(401)
     }
