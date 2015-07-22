@@ -43,7 +43,9 @@ function setup(plugin, imports, register) {
       type = credParts[0]
       credentials = credParts[1]
     }
-    this.user = yield auth.authenticate(type, credentials)
+    try {
+      this.user = yield auth.authenticate(type, credentials)
+    }catch(e) {}
     if(!this.user) {
       return this.throw(401)
     }
