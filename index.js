@@ -95,8 +95,8 @@ function setup(plugin, imports, register) {
           this.body = {message: 'ok'}
         })
 
-      .post('/documents/:document/pendingChanges', function * (next) {
-          if(!(yield auth.authorize(this.user, 'document/pendingChanges:create', this.params))) {
+      .post('/documents/:document/snapshots', function * (next) {
+          if(!(yield auth.authorize(this.user, 'document:change', this.params))) {
             return this.throw(403)
           }
           if(!this.accepts('json')) {
