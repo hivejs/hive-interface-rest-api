@@ -50,6 +50,20 @@ describe('Users API', function() {
     .end(done)
   })
 
+  it('should update a user', function(done) {
+    request
+    .put('/users/'+userId)
+    .set('Authorization', 'token '+API_key)
+    .send({name: 'baz'})
+    .expect(200)
+    .expect('Content-Type', /json/)
+    .end(function(err, res) {
+      if(err) return done(err)
+      expect(res.body.name).to.equal('baz')
+      done()
+    })
+  })
+
   it('should delete a user', function(done) {
     request
     .delete('/users/'+userId)

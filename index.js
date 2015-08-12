@@ -130,7 +130,7 @@ function setup(plugin, imports, register) {
             , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
             }), null, cb)
           }
-          
+
           this.body = yield Snapshot.findOne({id: edit.id})
         })
 
@@ -187,7 +187,6 @@ function setup(plugin, imports, register) {
           , type: this.request.body.type
           , foreignId: this.request.body.foreignId
           })
-          yield user.save()
           this.body = user
         })
       .get('/users/:user', function*(next) {
@@ -200,7 +199,13 @@ function setup(plugin, imports, register) {
         })
 
       .put('/users/:user', function*(next) {
-          // XXX
+          var params = Object.create(this.params)
+          params.data = this.request.body
+          if(!(yield auth.authorize(this.user, 'user:write', params))) {
+            return this.throw(403)
+          }
+          yield User.update({id: this.params.user}, this.request.body)
+          this.body = yield User.findOne({id: this.params.user})
         })
       .delete('/users/:user', function * (next) {
           if(!(yield auth.authorize(this.user, 'user:destroy', this.params))) {
