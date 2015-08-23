@@ -62,7 +62,7 @@ function setup(plugin, imports, register) {
     }
     try {
       this.user = yield auth.authenticate(type, credentials)
-    }catch(e) {}
+    }catch(e) {console.log(e.stack ||e)}
     if(!this.user) {
       return this.throw(401)
     }
