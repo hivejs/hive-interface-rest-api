@@ -1,5 +1,5 @@
 {
-  "name": "hive-rest-api",
+  "name": "hive-interface-rest-api",
   "version": "0.0.3",
   "description": "REST api for hive.js",
   "main": "index.js",
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hivejs/hive-rest-api.git"
+    "url": "https://github.com/hivejs/hive-interface-rest-api.git"
   },
   "keywords": [
     "hivejs",
@@ -26,7 +26,7 @@
   "author": "Marcel Klehr <mklehr@gmx.net>",
   "license": {"license": "GPL-3.0"},
   "bugs": {
-    "url": "https://github.com/hivejs/hive-rest-api/issues"
+    "url": "https://github.com/hivejs/hive-interface-rest-api/issues"
   },
-  "homepage": "https://github.com/hivejs/hive-rest-api"
+  "homepage": "https://github.com/hivejs/hive-interface-rest-api"
 }
