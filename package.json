@@ -1,6 +1,6 @@
 {
   "name": "hive-interface-rest-api",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "REST api for hive.js",
   "main": "index.js",
   "dependencies": {
@@ -24,7 +24,9 @@
     "hive.js"
   ],
   "author": "Marcel Klehr <mklehr@gmx.net>",
-  "license": {"license": "GPL-3.0"},
+  "license": {
+    "license": "GPL-3.0"
+  },
   "bugs": {
     "url": "https://github.com/hivejs/hive-interface-rest-api/issues"
   },
