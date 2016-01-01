@@ -122,28 +122,28 @@ function setup(plugin, imports, register) {
           var doc = yield Document.findOne({id: this.params.document}) // XXX: 404
           if(!doc) this.throw(404)
 
-          var doc = yield sync.getDocument(doc.id)
+          doc = yield sync.getDocument(doc.id)
           var edit = yield function(cb) {
             doc.receiveEdit(JSON.stringify({
               cs: this.request.body.changes
             , parent: this.request.body.parent
-            , user: this.request.body.user // XXX: What if I'm admin and req.body.user != this.user
+            , user: this.user
             }), null, cb)
           }
 
           this.body = yield Snapshot.findOne({id: edit.id})
         })
 
-      .get('/documents/:document/users', function * (next) {
-          if(!(yield auth.authorize(this.user, 'document/users:index', this.params))) {
+      .get('/documents/:document/authors', function * (next) {
+          if(!(yield auth.authorize(this.user, 'document/authors:index', this.params))) {
             return this.throw(403)
           }
-          var doc = yield Document.findOne({id: this.params.document})
-          this.body = doc.users
+          var doc = yield Document.findOne({id: this.params.document}).populate('authors')
+          this.body = doc.authors
         })
 
       .get('/documents/:document/snapshots', function * (next) {
-          if(!(yield auth.authorize(this.user, 'document/snapshots:index', this.params))) {
+          if(!(yield auth.authorize(this.user, 'document:read', this.params))) {
             return this.throw(403)
           }
 
