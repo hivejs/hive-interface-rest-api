@@ -101,6 +101,15 @@ function setup(plugin, imports, register) {
           if(!doc) this.throw(404)
           this.body = doc
         })
+      .put('/documents/:document', function*(next) {
+          var params = Object.create(this.params)
+          params.data = this.request.body
+          if(!(yield auth.authorize(this.user, 'document:write', params))) {
+            return this.throw(403)
+          }
+          yield Document.update({id: this.params.document}, this.request.body)
+          this.body = yield Document.findOne({id: this.params.document})
+        })
       .delete('/documents/:document', function * (next) {
           if(!(yield auth.authorize(this.user, 'document:destroy', this.params))) {
             return this.throw(403)
