@@ -22,7 +22,7 @@ var koa = require('koa')
   , jsonBody = require('koa-parse-json');
 
 module.exports = setup
-module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'sync', 'ot']
+module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'sync', 'ot', 'importexport']
 
 function setup(plugin, imports, register) {
   var httpApp = imports.http
@@ -31,6 +31,7 @@ function setup(plugin, imports, register) {
     , orm = imports.orm
     , sync = imports.sync
     , ot = imports.ot
+    , importexport = imports.importexport
 
   var api = koa()
   httpApp.use(mount('/api', api))
@@ -253,6 +254,17 @@ function setup(plugin, imports, register) {
           if(!snapshot) this.throw(404)
           this.body = snapshot
         })
+      .get('/snapshots/:snapshot/export', function * () {
+        if(!(yield auth.authorize(this.user, 'snapshot:show', this.params))) {
+          return this.throw(403)
+        }
+        var snapshot = yield Snapshot.findOne({id:this.params.snapshot})
+        if(!snapshot) this.throw(404)
+        var document = yield Document.findOne({id:snapshot.document})
+        var type = this.query.type || document.type
+        this.type = type
+        this.body = yield importexport.export(snapshot.id, type)
+      })
   })
 
   register()
