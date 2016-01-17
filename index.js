@@ -19,7 +19,9 @@
 var koa = require('koa')
   , mount = require('koa-mount')
   , router = require('koa-router')
-  , jsonBody = require('koa-parse-json');
+  , jsonBody = require('koa-json-body')
+  , parseUpload = require('co-busboy')
+  , WritableBuffer = require('stream-buffers').WritableStreamBuffer
 
 module.exports = setup
 module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'sync', 'ot', 'importexport']
@@ -38,8 +40,6 @@ function setup(plugin, imports, register) {
 
   var APIv1 = koa()
   api.use(mount('/v1', APIv1))
-
-  APIv1.use(jsonBody())
 
   APIv1.use(function *(next) {
     try {
@@ -78,7 +78,7 @@ function setup(plugin, imports, register) {
       , User = models.user
 
     APIv1
-      .post('/documents', function*(next) {
+      .post('/documents', jsonBody(), function*(next) {
           if(!this.accepts('json')) {
            return this.throw(406)
           }
@@ -102,7 +102,7 @@ function setup(plugin, imports, register) {
           if(!doc) this.throw(404)
           this.body = doc
         })
-      .put('/documents/:document', function*(next) {
+      .put('/documents/:document', jsonBody(), function*(next) {
           var params = Object.create(this.params)
           params.data = this.request.body
           if(!(yield auth.authorize(this.user, 'document:write', params))) {
@@ -122,14 +122,14 @@ function setup(plugin, imports, register) {
           this.body = {message: 'ok'}
         })
 
-      .post('/documents/:document/snapshots', function * (next) {
+      .post('/documents/:document/snapshots', jsonBody(), function * (next) {
           if(!(yield auth.authorize(this.user, 'document:change', this.params))) {
             return this.throw(403)
           }
           if(!this.accepts('json')) {
            return this.throw(406)
           }
-          var doc = yield Document.findOne({id: this.params.document}) // XXX: 404
+          var doc = yield Document.findOne({id: this.params.document})
           if(!doc) this.throw(404)
 
           doc = yield sync.getDocument(doc.id)
@@ -142,6 +142,41 @@ function setup(plugin, imports, register) {
           }
 
           this.body = yield Snapshot.findOne({id: edit.id})
+        })
+
+      .post('/documents/:document/import', function * (next) {
+          if(!(yield auth.authorize(this.user, 'document:change', this.params))) {
+            return this.throw(403)
+          }
+          var doc = yield Document.findOne({id: this.params.document})
+          if(!doc) this.throw(404)
+
+          try {
+            var parts = parseUpload(this, { autoFields: true})
+              , part, bufferStream
+            while(part = yield parts) {
+              bufferStream = new WritableBuffer()
+              var interval = setInterval(() => {
+                if(bufferStream.size() > 8*1024*1024) {
+                  part.unpipe()
+                  this.throw('Attachment is bigger than 8MB', 400)
+                  clearInterval(interval)
+                }
+              }, 100)
+              yield function (cb) {
+                part.on('end', cb)
+                part.pipe(bufferStream)
+              }
+              clearInterval(interval)
+              yield importexport.import(doc.id, this.user
+              , part.mime, bufferStream.getContents())
+            }
+          }catch(e) {
+            console.error(e.stack ||e)
+            return this.throw(e.message, 500)
+          }
+
+          this.body = {message: 'ok'}
         })
 
       .get('/documents/:document/authors', function * (next) {
@@ -176,7 +211,7 @@ function setup(plugin, imports, register) {
           this.body = doc.snapshots // XXX: Allow streamin'
         })
 
-      .post('/users', function*(next) {
+      .post('/users', jsonBody(), function*(next) {
           if(!this.accepts('json')) {
             return this.throw(406)
           }
@@ -208,7 +243,7 @@ function setup(plugin, imports, register) {
           this.body = user
         })
 
-      .put('/users/:user', function*(next) {
+      .put('/users/:user', jsonBody(), function*(next) {
           var params = Object.create(this.params)
           params.data = this.request.body
           if(!(yield auth.authorize(this.user, 'user:write', params))) {

@@ -6,7 +6,9 @@
   "dependencies": {
     "koa": "0.21.x",
     "koa-mount": "*",
-    "koa-parse-json": "*",
+    "koa-json-body": "4.x",
+    "co-busboy": "1.x",
+    "stream-buffers": "3.x",
     "koa-router": "3.x"
   },
   "devDependencies": {
