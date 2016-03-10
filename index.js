@@ -22,6 +22,7 @@ var koa = require('koa')
   , jsonBody = require('koa-json-body')
   , parseUpload = require('co-busboy')
   , WritableBuffer = require('stream-buffers').WritableStreamBuffer
+  , JSONAPI = require('waterline-to-jsonapi')
 
 module.exports = setup
 module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'sync', 'ot', 'importexport']
@@ -42,12 +43,15 @@ function setup(plugin, imports, register) {
   api.use(mount('/v1', APIv1))
 
   APIv1.use(function *(next) {
-    try {
+    try { 
+      if(!this.accepts('application/vnd.api+json')) {
+	return this.throw(406)
+      }
       yield next;
     } catch (err) {
-      this.status = err.status || 500;
-      this.body = {message: err.message};
-      this.app.emit('error', err, this);
+      this.app.emit('error', err, this)
+      this.status = err.status || 500
+      this.body = JSONAPI().errors(err)
     }
   })
 
@@ -64,64 +68,200 @@ function setup(plugin, imports, register) {
     try {
       this.user = yield auth.authenticate(type, credentials)
     }catch(e) {console.log(e.stack ||e)}
+    
     if(!this.user) {
       return this.throw(401)
     }
-    yield next
+    yield next    
   })
 
   APIv1.use(router(APIv1))
 
-  hooks.on('orm:initialized', function*(models){
+  function toWaterline(jsonAPIBody) {
+    if(Array.isArray(jsonAPIBody.data)) return jsonAPIBody.data.map(toWaterline)
+    var newItem = jsonAPIBody.data.attributes || {id: jsonAPIBody.data.id}
+    for(var rel in jsonAPIBody.data.relationships) {
+      var linkage = jsonAPIBody.data.relationships[rel].data
+      if(Array.isArray(linkage)) {
+	newItem[rel] = linkage.map(resource => resource.id)
+      }else if(linkage) {
+	newItem[rel] = linkage.id
+      }
+    }
+    return newItem
+  }
+
+  hooks.on('orm:initialized', function*(models) {
+    var VERBS = ['post', 'get', 'patch', 'delete', 'put']
+      , jsonapi = JSONAPI(orm)
+
+    Object.keys(orm.collections).forEach((model) => {
+      
+      // Routes for CRUD
+
+      APIv1.post('/'+model+'s', jsonBody(), function*(next) {
+	if(!(yield auth.authorize(this.user, model+':create', {body: this.request.body}))) {
+	  this.throw(403)
+	}
+
+	// Build a waterline-conformant object
+	var newItem = toWaterline(this.request.body)
+	  , data
+	// create item
+	if(orm.collections[model].override_create) {
+	  data = yield orm.collections[model].override_create(newItem)
+	}else {
+	  data = yield orm.collections[model].create(newItem)
+	}
+
+	this.body = jsonapi.collection(data, model)
+      })
+
+      APIv1.get('/'+model+'s/:id', function*(next) {
+        if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
+          this.throw(403)
+        }
+        
+	var data = yield orm.collections[model].findOne({id: this.params.id})
+	if(!data) this.throw(404)
+        this.body = jsonapi.single(data, model)
+      })
+
+      APIv1.patch('/'+model+'s/:id', jsonBody(), function*(next) {
+	if(!(yield auth.authorize(this.user, model+':write', {body: this.request.body, id: this.params.id}))) {
+	  this.throw(403)
+	}
+	if(this.request.body.id !== this.params.id) {
+	  this.throw(409)
+	}
+	if(!(yield orm.collections[model].findOne({id: this.params.id}))) {
+	  this.throw(404)
+	}
+	yield orm.collections[model].update({id: this.params.id}, toWaterline(this.request.body))
+	var data = yield orm.collections[model].findOne({id: this.params.id})
+        this.body = jsonapi.single(data, model)
+      })
+      
+      APIv1.delete('/'+model+'s/:id', function * (next) {
+	if(!(yield auth.authorize(this.user, model+':destroy', {id: this.params.id}))) {
+	  this.throw(403)
+	}
+
+	var item = yield orm.collections[model].findOne({id: this.params.id})
+	if(!item) this.throw(404)
+	yield item.destroy()
+
+	this.status = 204 // No Content
+        this.body = null
+      })
+
+      // Routes for relationships
+
+      Object.keys(orm.collections[model]._attributes)
+      .filter((attr) => {
+        // only relations
+        return models[model].attributes[attr].model
+        || models[model].attributes[attr].collection
+      })
+      .forEach((relation) => {
+        var isToMany = !!models[model].attributes[relation].collection
+          , relatedModel = models[model].attributes[relation].model
+                         || models[model].attributes[relation].collection
+
+        APIv1.get('/'+model+'s/:id/relationships/'+relation, function*(next) {
+          // XXX: Not sure how to infer a sensible authorize token
+          if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
+	    this.throw(403)
+	  }
+
+          var item = yield orm.collections[model].findOne({id: this.params.id}).populate(relation)
+          if(!item) this.throw(404)
+          this.body = jsonapi.relation(item, model, relation)
+        })
+
+        if(!isToMany) {
+          APIv1.patch('/'+model+'s/:id/relationships/'+relation, jsonBody(), function*(next) {
+            if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
+	      this.throw(403)
+	    }
+
+            var item = yield orm.collections[model].findOne({id: this.params.id})
+            if(!item) this.throw(404)
+            var data = toWaterline(this.request.body)
+            if(Array.isArray(data)) this.throw(400)
+            item[relation] = null === data? data : data.id
+            yield item.save()
+            this.status = 204
+            this.body = null
+          })
+        }else{
+          APIv1.patch('/'+model+'s/:id/relationships/'+relation, function*(next) {
+            this.throw(403)
+          })
+
+          APIv1.post('/'+model+'s/:id/relationships/'+relation, jsonBody(), function*(next) {
+            if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
+	      this.throw(403)
+	    }
+            var item = yield orm.collections[model].findOne({id: this.params.id})
+            if(!item) this.throw(404)
+            var data = toWaterline(this.request.body)
+            if(!Array.isArray(data)) this.throw(400)
+            // check all first
+            for(var i=0; i < data.length; i++) {
+              var newRel = data[i]
+              if(!(yield orm.collections[relatedModel].findOne({id: newRel.id}))) {
+                this.throw(400)
+              }
+            }
+            for(var i=0; i < data.length; i++) {
+              var newRel = data[i]
+              yield item[relation].add(newRel.id)
+            }
+            this.status = 204
+            this.body = null
+          })
+
+          APIv1.delete('/'+model+'s/:id/relationships/'+relation, jsonBody(), function*(next) {
+            if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
+	      this.throw(403)
+	    }
+            var item = yield orm.collections[model].findOne({id: this.params.id})
+            var data = toWaterline(this.request.body)
+            if(!Array.isArray(data)) this.throw(400) 
+            for(var i=0; i < data.length; i++) {
+              var newRel = data[i]
+              yield item[relation].remove(newRel.id)
+            }
+            this.status = 204
+            this.body = null
+          })
+        }
+      })
+
+      // Routes for class methods      
+
+      Object.keys(orm.collections[model]).forEach((method) => {
+        // Automatically create routes for VERB_action class methods -> VERB /models/:id/action
+        if(VERBS.some((verb) => method.indexOf(verb+'_') === 0)) {
+          var verb = method.split('_')[0]
+            , action = method.substr(verb.length+1)
+          APIv1[verb]('/'+model+'s/:id/'+action, jsonBody(), models[model][method])
+        }else
+        // Automatically create routes for VERB class methods -> VERB /models/:id?
+        if(VERBS.some((verb) => method.indexOf(verb) === 0)) {
+          var verb = method.split('_')[0]
+            , action = method.substr(verb.length+1) 
+          APIv1[verb]('/'+model+'s/:id?', jsonBody(), models[model][method])
+        }
+      })
+    })
+
     var Document = models.document
       , Snapshot = models.snapshot
       , User = models.user
 
     APIv1
-      .post('/documents', jsonBody(), function*(next) {
-          if(!this.accepts('json')) {
-           return this.throw(406)
-          }
-          if(!(yield auth.authorize(this.user, 'document:create', this.params))) {
-           return this.throw(403)
-          }
-
-          try {
-            var doc = yield sync.createDocument(this.request.body.type)
-          }catch(e) {
-            this.throw(400, e)
-          }
-
-          this.body = doc
-      })
-      .get('/documents/:document', function * (next) {
-          if(!(yield auth.authorize(this.user, 'document:show', this.params))) {
-            return this.throw(403)
-          }
-          var doc = yield Document.findOne({id: this.params.document})
-          if(!doc) this.throw(404)
-          this.body = doc
-        })
-      .put('/documents/:document', jsonBody(), function*(next) {
-          var params = Object.create(this.params)
-          params.data = this.request.body
-          if(!(yield auth.authorize(this.user, 'document:write', params))) {
-            return this.throw(403)
-          }
-          yield Document.update({id: this.params.document}, this.request.body)
-          this.body = yield Document.findOne({id: this.params.document})
-        })
-      .delete('/documents/:document', function * (next) {
-          if(!(yield auth.authorize(this.user, 'document:destroy', this.params))) {
-            return this.throw(403)
-          }
-
-          var doc = yield Document.findOne({id: this.params.document})
-          if(!doc) this.throw(404)
-          yield doc.destroy() // XXX: Remove all snapshots
-          this.body = {message: 'ok'}
-        })
-
       .post('/documents/:document/snapshots', jsonBody(), function * (next) {
           if(!(yield auth.authorize(this.user, 'document:change', this.params))) {
             return this.throw(403)
@@ -211,29 +351,6 @@ function setup(plugin, imports, register) {
           this.body = doc.snapshots // XXX: Allow streamin'
         })
 
-      .post('/users', jsonBody(), function*(next) {
-          if(!this.accepts('json')) {
-            return this.throw(406)
-          }
-          if(!(yield auth.authorize(this.user, 'user:create', this.params))) {
-            return this.throw(403)
-          }
-
-          var user = yield User.findOne({ type: this.request.body.type
-                                        , foreignId: this.request.body.foreignId})
-          // prevent user duplicates of same type+foreignId
-          if(user) {
-            this.body = user
-            return
-          }
-
-          user = yield User.create({
-            name: this.request.body.name
-          , type: this.request.body.type
-          , foreignId: this.request.body.foreignId
-          })
-          this.body = user
-        })
       .get('/users/:user', function*(next) {
           if(!(yield auth.authorize(this.user, 'user:show', this.params))) {
             return this.throw(403)
@@ -243,24 +360,6 @@ function setup(plugin, imports, register) {
           this.body = user
         })
 
-      .put('/users/:user', jsonBody(), function*(next) {
-          var params = Object.create(this.params)
-          params.data = this.request.body
-          if(!(yield auth.authorize(this.user, 'user:write', params))) {
-            return this.throw(403)
-          }
-          yield User.update({id: this.params.user}, this.request.body)
-          this.body = yield User.findOne({id: this.params.user})
-        })
-      .delete('/users/:user', function * (next) {
-          if(!(yield auth.authorize(this.user, 'user:destroy', this.params))) {
-            return this.throw(403)
-          }
-          var user = yield User.findOne({id:this.params.user})
-          if(!user) this.throw(404)
-          yield user.destroy()
-          this.body = {message: 'ok'}
-        })
 
       .get('/users/:user/documents', function*(next) {
           if(!(yield auth.authorize(this.user, 'user/documents:index', this.params))) {
@@ -281,14 +380,6 @@ function setup(plugin, imports, register) {
           this.body = snapshot
         })
 
-      .get('/snapshots/:snapshot', function * () {
-          if(!(yield auth.authorize(this.user, 'snapshot:show', this.params))) {
-            return this.throw(403)
-          }
-          var snapshot = yield Snapshot.findOne({id:this.params.snapshot}) // XXX: Might require Document.exists() beforehand to not make it throw up
-          if(!snapshot) this.throw(404)
-          this.body = snapshot
-        })
       .get('/snapshots/:snapshot/export', function * () {
         if(!(yield auth.authorize(this.user, 'snapshot:show', this.params))) {
           return this.throw(403)

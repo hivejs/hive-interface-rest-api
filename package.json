@@ -9,7 +9,8 @@
     "koa-json-body": "4.x",
     "co-busboy": "1.x",
     "stream-buffers": "3.x",
-    "koa-router": "3.x"
+    "koa-router": "3.x",
+    "waterline-to-jsonapi": "1.x"
   },
   "devDependencies": {
     "supertest": "*"
