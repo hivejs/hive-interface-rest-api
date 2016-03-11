@@ -131,7 +131,7 @@ function setup(plugin, imports, register) {
 	if(!(yield auth.authorize(this.user, model+':write', {body: this.request.body, id: this.params.id}))) {
 	  this.throw(403)
 	}
-	if(this.request.body.id !== this.params.id) {
+	if(this.request.body.data.id !== this.params.id) {
 	  this.throw(409)
 	}
         var oldModel
