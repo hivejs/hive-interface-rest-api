@@ -114,7 +114,7 @@ function setup(plugin, imports, register) {
 	  data = yield orm.collections[model].create(newItem)
 	}
 
-	this.body = jsonapi.collection(data, model)
+	this.body = jsonapi.single(data, model)
       })
 
       APIv1.get('/'+model+'s/:id', function*(next) {
