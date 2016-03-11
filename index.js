@@ -134,10 +134,11 @@ function setup(plugin, imports, register) {
 	if(this.request.body.id !== this.params.id) {
 	  this.throw(409)
 	}
-	if(!(yield orm.collections[model].findOne({id: this.params.id}))) {
+        var oldModel
+	if(!(oldModel = yield orm.collections[model].findOne({id: this.params.id}))) {
 	  this.throw(404)
 	}
-	yield orm.collections[model].update({id: this.params.id}, toWaterline(this.request.body))
+	yield orm.collections[model].update({id: this.params.id}, Object.assign({}, oldModel, toWaterline(this.request.body))
 	var data = yield orm.collections[model].findOne({id: this.params.id})
         this.body = jsonapi.single(data, model)
       })
