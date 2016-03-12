@@ -114,6 +114,7 @@ function setup(plugin, imports, register) {
 	  data = yield orm.collections[model].create(newItem)
 	}
 
+        this.status = 201
 	this.body = jsonapi.single(data, model)
       })
 
