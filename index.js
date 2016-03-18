@@ -104,6 +104,9 @@ function setup(plugin, imports, register) {
 	if(!(yield auth.authorize(this.user, model+':create', {body: this.request.body}))) {
 	  this.throw(403)
 	}
+        if(!this.is('application/vnd.api+json')) {
+          this.throw(415) // Unsupported media type
+        }
 
 	// Build a waterline-conformant object
 	var newItem = toWaterline(this.request.body)
@@ -133,6 +136,9 @@ function setup(plugin, imports, register) {
 	if(!(yield auth.authorize(this.user, model+':write', {body: this.request.body, id: this.params.id}))) {
 	  this.throw(403)
 	}
+        if(!this.is('application/vnd.api+json')) {
+          this.throw(415) // Unsupported media type
+        }
 	if(this.request.body.data.id !== this.params.id) {
 	  this.throw(409)
 	}
@@ -177,6 +183,10 @@ function setup(plugin, imports, register) {
 	    this.throw(403)
 	  }
 
+          if(!this.is('application/vnd.api+json')) {
+	    this.throw(415) // Unsupported media type
+	  }
+
           var item = yield orm.collections[model].findOne({id: this.params.id}).populate(relation)
           if(!item) this.throw(404)
           this.body = jsonapi.relation(item, model, relation, {fields: qs.parse(this.querystring).fields})
@@ -188,12 +198,28 @@ function setup(plugin, imports, register) {
 	      this.throw(403)
 	    }
 
+            if(!this.is('application/vnd.api+json')) {
+              this.throw(415) // Unsupported media type
+            }
+
             var item = yield orm.collections[model].findOne({id: this.params.id})
-            if(!item) this.throw(404)
+
+            // Not found?
+            if(!item) {
+              this.throw(404)
+            }
+
             var data = toWaterline(this.request.body)
-            if(Array.isArray(data)) this.throw(400)
-            item[relation] = null === data? data : data.id
+
+            // This is a to-one relation... No arrays!
+            if(Array.isArray(data)) {
+              this.throw(400)
+            }
+
+            item[relation] = null !== data? data.id : null
             yield item.save()
+
+            // all is well? Say nothing.
             this.status = 204
             this.body = null
           })
@@ -205,11 +231,24 @@ function setup(plugin, imports, register) {
           APIv1.post('/'+model+'s/:id/relationships/'+relation, jsonBody(), function*(next) {
             if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
 	      this.throw(403)
-	    }
+            }
+            if(!this.is('application/vnd.api+json')) {
+              this.throw(415) // Unsupported media type
+            }
             var item = yield orm.collections[model].findOne({id: this.params.id})
-            if(!item) this.throw(404)
+
+            // Not found?
+            if(!item) {
+              this.throw(404)
+            }
+
             var data = toWaterline(this.request.body)
-            if(!Array.isArray(data)) this.throw(400)
+
+            // Must be an array
+            if(!Array.isArray(data)) {
+              this.throw(400)
+            }
+
             // check all first
             for(var i=0; i < data.length; i++) {
               var newRel = data[i]
@@ -217,10 +256,14 @@ function setup(plugin, imports, register) {
                 this.throw(400)
               }
             }
+            // ... then add them all
             for(var i=0; i < data.length; i++) {
               var newRel = data[i]
-              yield item[relation].add(newRel.id)
+              item[relation].add(newRel.id)
             }
+            yield item.save()
+
+            // All is well? Say nothing.
             this.status = 204
             this.body = null
           })
@@ -231,11 +274,19 @@ function setup(plugin, imports, register) {
 	    }
             var item = yield orm.collections[model].findOne({id: this.params.id})
             var data = toWaterline(this.request.body)
-            if(!Array.isArray(data)) this.throw(400) 
+
+            // Must be an array
+            if(!Array.isArray(data)) {
+              this.throw(400) 
+            }
+
             for(var i=0; i < data.length; i++) {
               var newRel = data[i]
-              yield item[relation].remove(newRel.id)
+              item[relation].remove(newRel.id)
             }
+            yield item.save()
+
+            // All is well? Say nothing.
             this.status = 204
             this.body = null
           })
