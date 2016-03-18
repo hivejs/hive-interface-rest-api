@@ -23,6 +23,7 @@ var koa = require('koa')
   , parseUpload = require('co-busboy')
   , WritableBuffer = require('stream-buffers').WritableStreamBuffer
   , JSONAPI = require('waterline-to-jsonapi')
+  , qs = require('qs')
 
 module.exports = setup
 module.exports.consumes = ['http', 'auth', 'hooks', 'orm', 'sync', 'ot', 'importexport']
@@ -115,7 +116,7 @@ function setup(plugin, imports, register) {
 	}
 
         this.status = 201
-	this.body = jsonapi.single(data, model)
+	this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
       })
 
       APIv1.get('/'+model+'s/:id', function*(next) {
@@ -125,7 +126,7 @@ function setup(plugin, imports, register) {
         
 	var data = yield orm.collections[model].findOne({id: this.params.id})
 	if(!data) this.throw(404)
-        this.body = jsonapi.single(data, model)
+        this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
       })
 
       APIv1.patch('/'+model+'s/:id', jsonBody(), function*(next) {
@@ -141,7 +142,7 @@ function setup(plugin, imports, register) {
 	}
 	yield orm.collections[model].update({id: this.params.id}, Object.assign({}, oldModel, toWaterline(this.request.body)))
 	var data = yield orm.collections[model].findOne({id: this.params.id})
-        this.body = jsonapi.single(data, model)
+        this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
       })
       
       APIv1.delete('/'+model+'s/:id', function * (next) {
@@ -178,7 +179,7 @@ function setup(plugin, imports, register) {
 
           var item = yield orm.collections[model].findOne({id: this.params.id}).populate(relation)
           if(!item) this.throw(404)
-          this.body = jsonapi.relation(item, model, relation)
+          this.body = jsonapi.relation(item, model, relation, {fields: qs.parse(this.querystring).fields})
         })
 
         if(!isToMany) {
@@ -321,14 +322,6 @@ function setup(plugin, imports, register) {
           this.body = {message: 'ok'}
         })
 
-      .get('/documents/:document/authors', function * (next) {
-          if(!(yield auth.authorize(this.user, 'document/authors:index', this.params))) {
-            return this.throw(403)
-          }
-          var doc = yield Document.findOne({id: this.params.document}).populate('authors')
-          this.body = doc.authors
-        })
-
       .get('/documents/:document/snapshots', function * (next) {
           if(!(yield auth.authorize(this.user, 'document:read', this.params))) {
             return this.throw(403)
@@ -351,35 +344,6 @@ function setup(plugin, imports, register) {
 
           var doc = yield Document.findOne({id: this.params.document}).populate('snapshots')
           this.body = doc.snapshots // XXX: Allow streamin'
-        })
-
-      .get('/users/:user', function*(next) {
-          if(!(yield auth.authorize(this.user, 'user:show', this.params))) {
-            return this.throw(403)
-          }
-          var user = yield User.findOne({id: this.params.user}) // XXX: Might require Document.exists() beforehand to not make it throw up
-          if(!user) this.throw(404)
-          this.body = user
-        })
-
-
-      .get('/users/:user/documents', function*(next) {
-          if(!(yield auth.authorize(this.user, 'user/documents:index', this.params))) {
-            return this.throw(403)
-          }
-          var docs = yield Document.find({where: {authors: this.params.user}})
-          if(docs) this.body = docs
-          else this.body = []
-        })
-
-      .get('/users/:user/snapshots', function * () {
-          if(!(yield auth.authorize(this.user, 'user/snapshots:index', this.params))) {
-            return this.throw(403)
-          }
-          var snapshot = yield Snapshot.find({where: {author: this.params.user}})
-
-          if(!snapshot) this.throw(404)
-          this.body = snapshot
         })
 
       .get('/snapshots/:snapshot/export', function * () {
