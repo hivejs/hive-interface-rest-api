@@ -181,11 +181,7 @@ function setup(plugin, imports, register) {
           // XXX: Not sure how to infer a sensible authorize token
           if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
 	    this.throw(403)
-	  }
-
-          if(!this.is('application/vnd.api+json')) {
-	    this.throw(415) // Unsupported media type
-	  }
+          }
 
           var item = yield orm.collections[model].findOne({id: this.params.id}).populate(relation)
           if(!item) this.throw(404)
