@@ -10,6 +10,7 @@
     "co-busboy": "1.x",
     "stream-buffers": "3.x",
     "koa-router": "3.x",
+    "qs": "6.x",
     "waterline-to-jsonapi": "1.x"
   },
   "devDependencies": {
