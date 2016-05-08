@@ -45,7 +45,7 @@ function setup(plugin, imports, register) {
   APIv1.use(function *(next) {
     try { 
       if(!this.accepts('application/vnd.api+json')) {
-	return this.throw(406)
+  return this.throw(406)
       }
       yield next;
     } catch (err) {
@@ -83,9 +83,9 @@ function setup(plugin, imports, register) {
     for(var rel in jsonAPIBody.data.relationships) {
       var linkage = jsonAPIBody.data.relationships[rel].data
       if(Array.isArray(linkage)) {
-	newItem[rel] = linkage.map(resource => resource.id)
+        newItem[rel] = linkage.map(resource => resource.id)
       }else if(linkage) {
-	newItem[rel] = linkage.id
+        newItem[rel] = linkage.id
       }
     }
     return newItem
@@ -100,25 +100,25 @@ function setup(plugin, imports, register) {
       // Routes for CRUD
 
       APIv1.post('/'+model+'s', jsonBody(), function*(next) {
-	if(!(yield auth.authorize(this.user, model+':create', {body: this.request.body}))) {
-	  this.throw(403)
-	}
+        if(!(yield auth.authorize(this.user, model+':create', {body: this.request.body}))) {
+          this.throw(403)
+        }
         if(!this.is('application/vnd.api+json')) {
           this.throw(415) // Unsupported media type
         }
 
-	// Build a waterline-conformant object
-	var newItem = toWaterline(this.request.body)
-	  , data
-	// create item
-	if(orm.collections[model].override_create) {
-	  data = yield orm.collections[model].override_create(newItem)
-	}else {
-	  data = yield orm.collections[model].create(newItem)
-	}
+        // Build a waterline-conformant object
+        var newItem = toWaterline(this.request.body)
+          , data
+        // create item
+        if(orm.collections[model].override_create) {
+          data = yield orm.collections[model].override_create(newItem)
+        }else {
+          data = yield orm.collections[model].create(newItem)
+        }
 
         this.status = 201
-	this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
+        this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
       })
 
       APIv1.get('/'+model+'s/:id', function*(next) {
@@ -126,40 +126,40 @@ function setup(plugin, imports, register) {
           this.throw(403)
         }
         
-	var data = yield orm.collections[model].findOne({id: this.params.id})
-	if(!data) this.throw(404)
+        var data = yield orm.collections[model].findOne({id: this.params.id})
+        if(!data) this.throw(404)
         this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
       })
 
       APIv1.patch('/'+model+'s/:id', jsonBody(), function*(next) {
-	if(!(yield auth.authorize(this.user, model+':write', {body: this.request.body, id: this.params.id}))) {
-	  this.throw(403)
-	}
+        if(!(yield auth.authorize(this.user, model+':write', {body: this.request.body, id: this.params.id}))) {
+          this.throw(403)
+        }
         if(!this.is('application/vnd.api+json')) {
           this.throw(415) // Unsupported media type
         }
-	if(this.request.body.data.id !== this.params.id) {
-	  this.throw(409)
-	}
+        if(this.request.body.data.id !== this.params.id) {
+          this.throw(409)
+        }
         var oldModel
-	if(!(oldModel = yield orm.collections[model].findOne({id: this.params.id}))) {
-	  this.throw(404)
-	}
-	yield orm.collections[model].update({id: this.params.id}, toWaterline(this.request.body))
-	var data = yield orm.collections[model].findOne({id: this.params.id})
+        if(!(oldModel = yield orm.collections[model].findOne({id: this.params.id}))) {
+          this.throw(404)
+        }
+        yield orm.collections[model].update({id: this.params.id}, toWaterline(this.request.body))
+        var data = yield orm.collections[model].findOne({id: this.params.id})
         this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
       })
       
       APIv1.delete('/'+model+'s/:id', function * (next) {
-	if(!(yield auth.authorize(this.user, model+':destroy', {id: this.params.id}))) {
-	  this.throw(403)
-	}
+        if(!(yield auth.authorize(this.user, model+':destroy', {id: this.params.id}))) {
+          this.throw(403)
+        }
 
-	var item = yield orm.collections[model].findOne({id: this.params.id})
-	if(!item) this.throw(404)
-	yield item.destroy()
+        var item = yield orm.collections[model].findOne({id: this.params.id})
+        if(!item) this.throw(404)
+        yield item.destroy()
 
-	this.status = 204 // No Content
+        this.status = 204 // No Content
         this.body = null
       })
 
@@ -179,7 +179,7 @@ function setup(plugin, imports, register) {
         APIv1.get('/'+model+'s/:id/relationships/'+relation, function*(next) {
           // XXX: Not sure how to infer a sensible authorize token
           if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
-	    this.throw(403)
+            this.throw(403)
           }
 
           var item = yield orm.collections[model].findOne({id: this.params.id}).populate(relation)
@@ -190,8 +190,8 @@ function setup(plugin, imports, register) {
         if(!isToMany) {
           APIv1.patch('/'+model+'s/:id/relationships/'+relation, jsonBody(), function*(next) {
             if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
-	      this.throw(403)
-	    }
+              this.throw(403)
+            }
 
             if(!this.is('application/vnd.api+json')) {
               this.throw(415) // Unsupported media type
@@ -225,7 +225,7 @@ function setup(plugin, imports, register) {
 
           APIv1.post('/'+model+'s/:id/relationships/'+relation, jsonBody(), function*(next) {
             if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
-	      this.throw(403)
+              this.throw(403)
             }
             if(!this.is('application/vnd.api+json')) {
               this.throw(415) // Unsupported media type
@@ -265,8 +265,8 @@ function setup(plugin, imports, register) {
 
           APIv1.delete('/'+model+'s/:id/relationships/'+relation, jsonBody(), function*(next) {
             if(!(yield auth.authorize(this.user, model+':read', {id: this.params.id}))) {
-	      this.throw(403)
-	    }
+              this.throw(403)
+            }
             var item = yield orm.collections[model].findOne({id: this.params.id})
             var data = toWaterline(this.request.body)
 
