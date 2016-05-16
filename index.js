@@ -130,6 +130,18 @@ function setup(plugin, imports, register) {
         if(!data) this.throw(404)
         this.body = jsonapi.single(data, model, {fields: qs.parse(this.querystring).fields})
       })
+      
+      APIv1.get('/'+model+'s', function*(next) {
+        if(!(yield auth.authorize(this.user, model+':list', {}))) {
+          this.throw(403)
+        }
+        
+        var filter = qs.parse(this.querystring).filter
+        if (!filter) this.throw(400)
+        var data = yield orm.collections[model].find(filter)
+        if(!data || !data.length) this.throw(404)
+        this.body = jsonapi.collection(data, model)
+      })
 
       APIv1.patch('/'+model+'s/:id', jsonBody(), function*(next) {
         if(!(yield auth.authorize(this.user, model+':write', {body: this.request.body, id: this.params.id}))) {
