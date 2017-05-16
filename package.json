@@ -5,7 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "koa": "0.21.x",
-    "koa-mount": "*",
+    "koa-mount": "1.x",
     "koa-json-body": "4.x",
     "co-busboy": "1.x",
     "stream-buffers": "3.x",
